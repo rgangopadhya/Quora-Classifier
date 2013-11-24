@@ -61,3 +61,41 @@ def import_cv_results(input_data):
     cv_results.append({"ID": split_row[0].rstrip(), "Label": split_row[1].rstrip()})
 
   return cv_results                       
+
+def main():
+  """
+  Use random forests to classify, based on cv results
+  """
+  from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+  from sklearn.grid_search import GridSearchCV
+  from sklearn.preprocessing import StandardScaler
+  import sys 
+
+  #call import_data on STDIN, returning formatted query results
+  M, N, q, tset, pset = import_data(sys.stdin)
+  #create features list so we can easily grab the feature fields
+  features = ["F" + str(j) for j in xrange(1, M+1)]
+ 
+  #read in to a pandas dataframe and perform some preprocessing
+  training_set = pd.DataFrame(tset).set_index('ID')
+  pred_set = pd.DataFrame(pset).set_index('ID')
+  
+  scale = StandardScaler().fit(training_set[features])
+  training_set[features] = scale.transform(training_set[features])
+  pred_set[features] = scale.transform(pred_set[features])
+  
+  #adjust the labeling convention
+  training_set['Label'] = training_set['Label'] == "+1"
+
+  grad = GradientBoostingClassifier(n_estimators=1000, learning_rate=1.0, max_depth=1)
+  grad.fit(training_set[features], training_set['Label'])
+
+  def print_results(x):
+    if x['Pred_Label'] == 1: print x.name + " +1"
+    else: print x.name + " -1" 
+    
+  pred_set['Pred_Label'] = grad.predict(pred_set[features])
+  pred_set.apply(print_results, axis=1)
+
+if __name__ == '__main__':
+  main()
